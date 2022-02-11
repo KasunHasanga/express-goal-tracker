@@ -26,7 +26,7 @@ const registerUser = asyncHandler(async (req, res) => {
   const hashedPassword = await bcrypt.hash(password, salt);
 
   //create User
-  const user =await User.create({
+  const user = await User.create({
     name,
     email,
     password: hashedPassword,
@@ -37,12 +37,12 @@ const registerUser = asyncHandler(async (req, res) => {
       _id: user.id,
       name: user.name,
       email: user.email,
+      token: generateToken(user.id),
     });
   } else {
-    res.status(400)
+    res.status(400);
     throw new Error("Invalid user data");
   }
-
 });
 
 // @desc    Authenticate a User
@@ -50,38 +50,44 @@ const registerUser = asyncHandler(async (req, res) => {
 // @access  Public
 
 const loginUser = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
 
-    const {email,password} = req.body;
+  if (!email || !password) {
+    res.status(400);
+    throw new Error("please fill all details");
+  }
 
-    if(!email || !password){
-        res.status(400)
-        throw new Error('please fill all details')
-    }
+  //check user email
+  const user = await User.findOne({ email });
 
-    //check user email
-    const user =await User.findOne({email})
-
-
-
-    if(user && (await bcrypt.compare(password,user.password))){
-        res.status(200).json({
-            id:user.id,
-            name:user.name,
-            email:user.email,
-        })
-    }else{
-        res.status(400)
-        throw new Error("Invalid Credentials");
-    }
-
+  if (user && (await bcrypt.compare(password, user.password))) {
+    res.status(200).json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      token: generateToken(user.id),
+    });
+  } else {
+    res.status(400);
+    throw new Error("Invalid Credentials");
+  }
 });
 // @desc    get User data
 // @routes  GET /api/users/me
 // @access  Private
 
 const getMe = asyncHandler(async (req, res) => {
-  res.json({ message: "User Details" });
+  const { _id, name, email } = await User.findById(req.user.id);
+
+  res.status(200).json({ id: _id, name, email });
 });
+
+//Generate JWT
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: "30d",
+  });
+};
 
 module.exports = {
   registerUser,
